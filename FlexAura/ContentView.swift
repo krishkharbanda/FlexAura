@@ -6,19 +6,49 @@
 //
 
 import SwiftUI
+import LocalAuthentication
 
 struct ContentView: View {
+    
+    // MARK: VM
+    @EnvironmentObject var habitat: Habitat
+    
+    // MARK: body
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        ZStack {
+            switch habitat.appState {
+            case .onboarding:
+                OnboardingView()
+                    .environmentObject(habitat)
+            case .home:
+                HomeView()
+                    .environmentObject(habitat)
+            }
         }
-        .padding()
+        .task {
+            var context = LAContext()
+            context.localizedCancelTitle = "Cancel"
+            
+            var error: NSError?
+            guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+                print(error?.localizedDescription ?? "Can't evaluate policy")
+                return
+            }
+            
+            Task {
+                do {
+                    try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Log in to your account")
+                    habitat.appState = .home
+                } catch let error {
+                    print(error.localizedDescription)
+                    return
+                }
+            }
+        }
     }
 }
 
+// MARK: Preview
 #Preview {
     ContentView()
 }
